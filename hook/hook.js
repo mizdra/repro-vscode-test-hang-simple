@@ -6,19 +6,17 @@ let lookup;
 export const initialize = (context) => {
   let requestIds = 0;
   const { port } = context;
-  const pendingRequests = new Map();
-  port.onmessage = (event) => {
-    const { id, url } = event.data;
-    pendingRequests.get(id)?.(url);
-  };
   lookup = async (url) => {
     const myId = requestIds++;
-    return new Promise((resolve) => {
-      pendingRequests.set(myId, resolve);
-      port.postMessage({ id: myId, url });
-    });
+    const { promise, resolve } = Promise.withResolvers();
+    port.addEventListener('message', (event) => {
+      const { id, url } = event.data;
+      if (id === myId) resolve(url);
+    }, { once: true });
+    port.postMessage({ id: myId, url });
+    return promise;
   };
-}
+};
 
 /** @type {import('node:module').ResolveHook} */
 export const resolve = async (specifier, context, nextResolve) => {
